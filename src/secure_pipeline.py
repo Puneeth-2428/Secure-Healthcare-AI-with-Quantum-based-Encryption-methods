@@ -6,14 +6,22 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-rng = np.random.default_rng(int(os.environ.get("SEED", "42")))          # training randomness only
+# Ensure directories exist
+os.makedirs("results", exist_ok=True)
+os.makedirs("models", exist_ok=True)
+
+rng = np.random.default_rng(int(os.environ.get("SEED", "42")))
 SCALE, N_NODES = 2**20, 3
 ROUNDS, LOCAL_EPOCHS, CLIP = 20, 3, 1.0
 NM = float(os.environ.get("NM", "1.0"))
-try:
-    EPS = json.load(open("results/epsilon.json"))[str(NM)]["worst_hospital_epsilon"]
-except Exception:
-    EPS = None
+
+EPS = None
+epsilon_path = "results/epsilon.json"
+if os.path.exists(epsilon_path):
+    try:
+        EPS = json.load(open(epsilon_path))[str(NM)]["worst_hospital_epsilon"]
+    except Exception:
+        pass
 
 parts = [np.load(f"data/processed/hospital_{i}.npz") for i in range(3)]
 H = [(p["X"].astype(np.float64), p["y"].astype(np.float64)) for p in parts]
@@ -69,7 +77,7 @@ def receive(pkg, dk, aad):
     return np.frombuffer(AESGCM(skey(shared)).decrypt(nonce, sealed, aad),
                          dtype=np.uint64).copy()
 
-node_keys = [ML_KEM_768.keygen() for _ in range(N_NODES)]   # (public, private) per node
+node_keys = [ML_KEM_768.keygen() for _ in range(N_NODES)]
 
 d = H[0][0].shape[1]
 w, b = np.zeros(d), 0.0
@@ -110,4 +118,3 @@ if os.environ.get("MODEL_OUT"):
     np.savez(os.environ["MODEL_OUT"], w=w, b=b, noise_multiplier=NM, clip_norm=CLIP,
              epsilon=EPS if EPS is not None else np.nan, delta=1e-5, rounds=ROUNDS)
     print("model saved to", os.environ["MODEL_OUT"])
-

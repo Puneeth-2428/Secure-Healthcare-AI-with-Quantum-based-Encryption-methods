@@ -1,6 +1,8 @@
+import os
 import numpy as np, json
 from sklearn.metrics import accuracy_score, roc_auc_score
 
+os.makedirs("results", exist_ok=True)
 rng = np.random.default_rng(42)
 parts = [np.load(f"data/processed/hospital_{i}.npz") for i in range(3)]
 H = [(p["X"].astype(np.float64), p["y"].astype(np.float64)) for p in parts]
@@ -36,7 +38,7 @@ def federated(nm, rounds=20, local_epochs=3):
     return w, b
 
 results = {}
-for nm in [0.0, 1.0]:
+for nm in [0.0, 1.0, 2.0]:
     w, b = federated(nm)
     p = sigmoid(Xt @ w + b)
     results[str(nm)] = {"accuracy": float(accuracy_score(yt, p > 0.5)),

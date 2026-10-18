@@ -1,8 +1,9 @@
-import json
+import os, json
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
+os.makedirs("results", exist_ok=True)
 rng = np.random.default_rng(7)
 parts = [np.load(f"data/processed/hospital_{i}.npz") for i in range(3)]
 test = np.load("data/processed/test.npz")
@@ -21,7 +22,7 @@ def train_dp(Xs, ys, nm, epochs=100, lr=0.1, clip=1.0, batch=8):
     n, d = Xs.shape
     w, b = np.zeros(d), 0.0
     for _ in range(epochs):
-        for _ in range(n // batch):
+        for _ in range(max(1, n // batch)):
             idx = rng.choice(n, batch, replace=False)
             err = sigmoid(Xs[idx] @ w + b) - ys[idx]
             g = np.hstack([Xs[idx] * err[:, None], err[:, None]])
@@ -58,7 +59,6 @@ for n in names:
     se = a.std(ddof=1) / np.sqrt(TRIALS)
     results[n] = {"attack_auc": float(a.mean()), "std_error": float(se),
                   "nonmember_accuracy": float(np.mean(acc[n]))}
-    print(f"{n:14s} attack AUC {a.mean():.3f} +/- {se:.3f}   "
-          f"unseen-patient accuracy {np.mean(acc[n]):.3f}")
+    print(f"{n:14s} attack AUC {a.mean():.3f} +/- {se:.3f}   unseen-patient accuracy {np.mean(acc[n]):.3f}")
 
 json.dump(results, open("results/membership.json", "w"), indent=2)
